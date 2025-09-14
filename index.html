@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HordingBook - Billboard Booking Platform</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #ff2e63;
+            --secondary: #252a34;
+            --accent: #08d9d6;
+        }
+        
+        * {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .neubrutalism {
+            border: 3px solid black;
+            box-shadow: 5px 5px 0px black;
+            transition: all 0.2s ease;
+        }
+
+        .neubrutalism:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 7px 7px 0px black;
+        }
+
+        .loading {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-[#eaeaea]">
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="bg-white p-4 neubrutalism mb-8">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-2xl font-bold">HordingBook</h1>
+                <div v-if="!isLoggedIn">
+                    <button @click="showLogin = true" class="bg-[#ff2e63] text-white px-6 py-2 rounded neubrutalism mr-4">Login</button>
+                    <button @click="showRegister = true" class="bg-[#08d9d6] text-white px-6 py-2 rounded neubrutalism">Register</button>
+                </div>
+                <div v-else class="flex items-center">
+                    <span class="mr-4">Welcome, {{user.name}}</span>
+                    <button @click="logout" class="bg-red-500 text-white px-6 py-2 rounded neubrutalism">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="container mx-auto p-4">
+            <!-- Welcome Section -->
+            <div v-if="!isLoggedIn" class="text-center mb-12">
+                <h2 class="text-4xl font-bold mb-4">Billboard Booking Made Simple</h2>
+                <p class="text-xl mb-8">Find and book premium advertising spaces or list your hoardings</p>
+                <div class="flex justify-center gap-4">
+                    <button @click="showRegister = true" class="bg-[#ff2e63] text-white px-8 py-3 rounded-lg neubrutalism text-xl">Get Started</button>
+                    <button class="bg-[#08d9d6] text-white px-8 py-3 rounded-lg neubrutalism text-xl">Learn More</button>
+                </div>
+            </div>
+
+            <!-- Dashboard -->
+            <div v-else>
+                <!-- Admin Dashboard -->
+                <div v-if="user.role === 'admin'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-lg neubrutalism">
+                        <h3 class="text-xl font-bold mb-4">Manage Sub-Admins</h3>
+                        <button @click="showSubAdminForm = true" class="bg-[#ff2e63] text-white px-4 py-2 rounded neubrutalism">Add Sub-Admin</button>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg neubrutalism">
+                        <h3 class="text-xl font-bold mb-4">Pending KYC</h3>
+                        <p class="text-3xl font-bold">{{pendingKyc}}</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg neubrutalism">
+                        <h3 class="text-xl font-bold mb-4">Pending Hoardings</h3>
+                        <p class="text-3xl font-bold">{{pendingHoardings}}</p>
+                    </div>
+                </div>
+
+                <!-- Hoarding Owner Dashboard -->
+                <div v-if="user.role === 'owner'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-lg neubrutalism">
+                        <h3 class="text-xl font-bold mb-4">My Hoardings</h3>
+                        <button @click="showHoardingForm = true" class="bg-[#ff2e63] text-white px-4 py-2 rounded neubrutalism">Add Hoarding</button>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg neubrutalism">
+                        <h3 class="text-xl font-bold mb-4">Active Bookings</h3>
+                        <p class="text-3xl font-bold">{{activeBookings}}</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg neubrutalism">
+                        <h3 class="text-xl font-bold mb-4">Total Revenue</h3>
+                        <p class="text-3xl font-bold">₹{{totalRevenue}}</p>
+                    </div>
+                </div>
+
+                <!-- User Dashboard -->
+                <div v-if="user.role === 'user'" class="space-y-6">
+                    <div class="bg-white p-6 rounded-lg neubrutalism">
+                        <h3 class="text-xl font-bold mb-4">Available Hoardings</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div v-for="hoarding in availableHoardings" :key="hoarding.id" 
+                                class="bg-gray-100 p-4 rounded-lg neubrutalism">
+                                <img :src="hoarding.image" class="w-full h-48 object-cover rounded mb-4">
+                                <h4 class="font-bold">{{hoarding.name}}</h4>
+                                <p class="text-gray-600">{{hoarding.location}}</p>
+                                <p class="font-bold mt-2">₹{{hoarding.price}}/day</p>
+                                <button @click="bookHoarding(hoarding.id)" 
+                                    class="bg-[#ff2e63] text-white px-4 py-2 rounded neubrutalism mt-4 w-full">
+                                    Book Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <!-- Login Modal -->
+        <div v-if="showLogin" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div class="bg-white p-8 rounded-lg neubrutalism w-full max-w-md">
+                <h2 class="text-2xl font-bold mb-6">Login</h2>
+                <form @submit.prevent="handleLogin" class="space-y-4">
+                    <div>
+                        <label class="block mb-2">Email</label>
+                        <input type="email" v-model="loginForm.email" required
+                            class="w-full p-2 border border-gray-300 rounded neubrutalism">
+                    </div>
+                    <div>
+                        <label class="block mb-2">Password</label>
+                        <input type="password" v-model="loginForm.password" required
+                            class="w-full p-2 border border-gray-300 rounded neubrutalism">
+                    </div>
+                    <button type="submit" class="w-full bg-[#ff2e63] text-white px-6 py-2 rounded neubrutalism">
+                        Login
+                    </button>
+                </form>
+                <button @click="showLogin = false" class="absolute top-4 right-4">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Register Modal -->
+        <div v-if="showRegister" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div class="bg-white p-8 rounded-lg neubrutalism w-full max-w-md">
+                <h2 class="text-2xl font-bold mb-6">Register</h2>
+                <form @submit.prevent="handleRegister" class="space-y-4">
+                    <div>
+                        <label class="block mb-2">Full Name</label>
+                        <input type="text" v-model="registerForm.name" required pattern="[A-Za-z ]*"
+                            class="w-full p-2 border border-gray-300 rounded neubrutalism">
+                    </div>
+                    <div>
+                        <label class="block mb-2">Mobile Number</label>
+                        <input type="tel" v-model="registerForm.mobile" required pattern="[0-9]{10}"
+                            class="w-full p-2 border border-gray-300 rounded neubrutalism">
+                    </div>
+                    <div>
+                        <label class="block mb-2">Email</label>
+                        <input type="email" v-model="registerForm.email" required
+                            class="w-full p-2 border border-gray-300 rounded neubrutalism">
+                    </div>
+                    <div>
+                        <label class="block mb-2">Password</label>
+                        <input type="password" v-model="registerForm.password" required
+                            pattern="^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])[A-Za-z0-9!@#$%^&*]{8,}$"
+                            class="w-full p-2 border border-gray-300 rounded neubrutalism">
+                    </div>
+                    <div>
+                        <label class="block mb-2">Role</label>
+                        <select v-model="registerForm.role" required
+                            class="w-full p-2 border border-gray-300 rounded neubrutalism">
+                            <option value="user">Advertiser</option>
+                            <option value="owner">Hoarding Owner</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-[#ff2e63] text-white px-6 py-2 rounded neubrutalism">
+                        Register
+                    </button>
+                </form>
+                <button @click="showRegister = false" class="absolute top-4 right-4">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    showLogin: false,
+                    showRegister: false,
+                    showHoardingForm: false,
+                    showSubAdminForm: false,
+                    isLoggedIn: false,
+                    user: {
+                        name: '',
+                        role: ''
+                    },
+                    loginForm: {
+                        email: '',
+                        password: ''
+                    },
+                    registerForm: {
+                        name: '',
+                        mobile: '',
+                        email: '',
+                        password: '',
+                        role: 'user'
+                    },
+                    pendingKyc: 5,
+                    pendingHoardings: 12,
+                    activeBookings: 8,
+                    totalRevenue: 125000,
+                    availableHoardings: [
+                        {
+                            id: 1,
+                            name: "Prime Location Billboard",
+                            location: "MG Road, Mumbai",
+                            price: 5000,
+                            image: "https://images.unsplash.com/photo-1595760780346-f972eb49709f"
+                        },
+                        {
+                            id: 2,
+                            name: "Highway LED Display",
+                            location: "Western Express Highway",
+                            price: 7500,
+                            image: "https://images.unsplash.com/photo-1589245108472-a4f5062e8d6b"
+                        }
+                    ]
+                }
+            },
+            methods: {
+                async handleLogin(e) {
+                    // Simulated login
+                    this.isLoggedIn = true;
+                    this.user = {
+                        name: "John Doe",
+                        role: this.loginForm.email.includes('admin') ? 'admin' : 
+                              this.loginForm.email.includes('owner') ? 'owner' : 'user'
+                    };
+                    this.showLogin = false;
+                },
+                async handleRegister(e) {
+                    // Simulated registration
+                    this.showRegister = false;
+                    this.showLogin = true;
+                },
+                logout() {
+                    this.isLoggedIn = false;
+                    this.user = {
+                        name: '',
+                        role: ''
+                    };
+                },
+                bookHoarding(id) {
+                    alert('Booking initiated for hoarding #' + id);
+                }
+            }
+        }).mount('#app')
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
